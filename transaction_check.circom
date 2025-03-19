@@ -38,7 +38,7 @@ template OR(n){
     signal input isban[n];
     signal output result;
     var midval = 0;
-    
+
     for(var i=0; i < n; i++){
         
         midval = midval | isban[i];
@@ -70,3 +70,6 @@ template HiddenBalanceCheck(balance, minRequired) {
 }
 
 component main = HiddenBalanceCheck(100, 50);
+
+
+
