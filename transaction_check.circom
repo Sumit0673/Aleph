@@ -1,4 +1,5 @@
 pragma circom 2.2.2;
+
 include "../../circom/circomlib/circuits/comparators.circom";
 
 template threshold_check(threshold, amount){
@@ -14,7 +15,8 @@ template ReentrancyGaurd(lastcall){
     valid <== 1 - lastcall;
 }
 
-template isAllowed(sender, bannedList, lenghtOfList){
+template isAllowed(sender, lenghtOfList){
+    signal input bannedList[lenghtOfList];
     signal output valid;
 
     signal isbanned[lenghtOfList];
@@ -24,22 +26,22 @@ template isAllowed(sender, bannedList, lenghtOfList){
     }
 
 
-    component isInBannedList = OR(lenghtOfList, isbanned);
-    // for(var i=0; i<lenghtOfList; i++){
-    //     isInBannedList.isban[i] <== isbanned[i];
-    // }
+    component isInBannedList = OR(lenghtOfList);
+    for(var i=0; i<lenghtOfList; i++){
+        isInBannedList.isban[i] <== isbanned[i];
+    }
 
     valid <== 1 - isInBannedList.result;
 }
 
-template OR(n, isbanned){
-    // signal input isban[n];
+template OR(n){
+    signal input isban[n];
     signal output result;
     var midval = 0;
 
     for(var i=0; i < n; i++){
         
-        midval = midval | isbanned[i];
+        midval = midval | isban[i];
     }
     result <-- midval;
 }
@@ -61,10 +63,12 @@ template MultiSig(approvals, requiredSignatures) {
 }
 
 
-template HiddenBalanceCheck(balance, minRequired) {
+template HiddenBalanceCheck() {
+    signal input balance;
+    signal input minRequired;
     signal output valid;
 
-    valid <== balance >= minRequired;
+    valid <== (balance >= minRequired);
 }
 
 
@@ -73,8 +77,8 @@ template merger(){
     signal input amount;
     signal input lastcall;
     signal input sender;
-    signal input bannedList;
     signal input lenghtOfList;
+    signal input bannedList[lenghtOfList];
     signal input currentTime;
     signal input txTimestamp;
     signal input maxDelay;
@@ -90,11 +94,16 @@ template merger(){
 
     component Thresh_check = threshold_check(amount, threshold);
     component reentrance = ReentrancyGaurd(lastcall);
-    component allowance = isAllowed(sender, bannedList, lenghtOfList);
+    component allowance = isAllowed(sender, lenghtOfList);
+    for (var i=0; i< lenghtOfList; i++){
+        allowance.bannedList[i] <== bannedList[i];
+    }
     component time_check = TimestampValidation(currentTime, txTimestamp, maxDelay);
     component overflow = OverflowCheck(balance, amount, maxUint);
     component sig_valid = MultiSig(approvals, requiredSignatures);
-    component hid_balance = HiddenBalanceCheck(balance, minRequired);
+    component hid_balance = HiddenBalanceCheck();
+    hid_balance.balance <== balance;
+    hid_balance.minRequired <== minRequired;
 
 
     isvalid[0] <== Thresh_check.valid;
@@ -105,7 +114,10 @@ template merger(){
     isvalid[5] <== sig_valid.valid;
     isvalid[6] <== hid_balance.valid;
 
-    component final_checks = OR(7, isvalid);
+    component final_checks = OR(7);
+    for(var i=0; i<7; i++){
+        final_checks.isban[i] <== isvalid[i];
+    }
 
     isValidTransaction <-- final_checks.result;
 
