@@ -3,7 +3,6 @@
     "amount":500,
     "lastcall": 0,
     "sender": 11,
-    "lenghtOfList": 5,
     "bannedList": [1,2,3,5,7],
     "currentTime":20250319231000,
     "txTimestamp":20250319231035,

@@ -1,28 +1,31 @@
 pragma circom 2.2.2;
 
-include "../../circom/circomlib/circuits/comparators.circom";
 
-template threshold_check(threshold, amount){
+template threshold_check(){
+    signal input threshold;
+    signal input amount;
     signal output valid;
 
-    valid <== amount <= threshold;
+    valid <-- (amount <= threshold);
 }
 
 
-template ReentrancyGaurd(lastcall){
+template ReentrancyGaurd(){
+    signal input lastcall;
     signal output valid;
 
     valid <== 1 - lastcall;
 }
 
-template isAllowed(sender, lenghtOfList){
+template isAllowed(lenghtOfList){
+    signal input sender;
     signal input bannedList[lenghtOfList];
     signal output valid;
 
     signal isbanned[lenghtOfList];
 
     for (var i=0; i< lenghtOfList; i++){
-        isbanned[i] <== (sender == bannedList[i]);
+        isbanned[i] <-- (sender == bannedList[i]);
     }
 
 
@@ -45,21 +48,40 @@ template OR(n){
     }
     result <-- midval;
 }
+template AND(n){
+    signal input isban[n];
+    signal output result;
+    var midval = 1;
 
-
-template TimestampValidation(currentTime, txTimestamp, maxDelay) {
-    signal output valid;
-    valid <== (currentTime - txTimestamp) <= maxDelay;
+    for(var i=0; i < n; i++){
+        
+        midval = midval && isban[i];
+    }
+    result <-- midval;
 }
 
-template OverflowCheck(balance, amount, maxUint) {
+
+template TimestampValidation() {
+    signal input currentTime;
+    signal input txTimestamp;
+    signal input maxDelay;  
     signal output valid;
-    valid <== (balance + amount) <= maxUint;
+    valid <-- (currentTime - txTimestamp) <= maxDelay;
 }
 
-template MultiSig(approvals, requiredSignatures) {
+template OverflowCheck() {
+    signal input balance;
+    signal input amount;
+    signal input maxUint;
     signal output valid;
-    valid <== approvals >= requiredSignatures;
+    valid <-- (balance + amount) <= maxUint;
+}
+
+template MultiSig() {
+    signal input approvals;
+    signal input requiredSignatures;
+    signal output valid;
+    valid <-- (approvals >= requiredSignatures);
 }
 
 
@@ -68,16 +90,16 @@ template HiddenBalanceCheck() {
     signal input minRequired;
     signal output valid;
 
-    valid <== (balance >= minRequired);
+    valid <-- (balance >= minRequired);
 }
 
 
-template merger(){
+template merger(lenghtOfList){
     signal input threshold;
     signal input amount;
     signal input lastcall;
     signal input sender;
-    signal input lenghtOfList;
+    // signal input lenghtOfList;
     signal input bannedList[lenghtOfList];
     signal input currentTime;
     signal input txTimestamp;
@@ -92,15 +114,34 @@ template merger(){
 
     signal isvalid[7];
 
-    component Thresh_check = threshold_check(amount, threshold);
-    component reentrance = ReentrancyGaurd(lastcall);
-    component allowance = isAllowed(sender, lenghtOfList);
+    component Thresh_check = threshold_check();
+    Thresh_check.amount <== amount;
+    Thresh_check.threshold <== threshold;
+
+    component reentrance = ReentrancyGaurd();
+    reentrance.lastcall <== lastcall;
+
+    component allowance = isAllowed(lenghtOfList);
+    allowance.sender <== sender;
+
     for (var i=0; i< lenghtOfList; i++){
         allowance.bannedList[i] <== bannedList[i];
     }
-    component time_check = TimestampValidation(currentTime, txTimestamp, maxDelay);
-    component overflow = OverflowCheck(balance, amount, maxUint);
-    component sig_valid = MultiSig(approvals, requiredSignatures);
+
+    component time_check = TimestampValidation();
+    time_check.currentTime <== currentTime;
+    time_check.txTimestamp <== txTimestamp;
+    time_check.maxDelay <== maxDelay;
+
+    component overflow = OverflowCheck();
+    overflow.balance <== balance;
+    overflow.amount <== amount;
+    overflow.maxUint <== maxUint;
+
+    component sig_valid = MultiSig();
+    sig_valid.approvals <== approvals;
+    sig_valid.requiredSignatures <== requiredSignatures;
+
     component hid_balance = HiddenBalanceCheck();
     hid_balance.balance <== balance;
     hid_balance.minRequired <== minRequired;
@@ -114,15 +155,17 @@ template merger(){
     isvalid[5] <== sig_valid.valid;
     isvalid[6] <== hid_balance.valid;
 
-    component final_checks = OR(7);
+    component final_checks = AND(7);
     for(var i=0; i<7; i++){
         final_checks.isban[i] <== isvalid[i];
     }
+
+
 
     isValidTransaction <-- final_checks.result;
 
 }
 
-component main = merger();
+component main = merger(5);
 
 
